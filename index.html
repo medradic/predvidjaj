@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Pčelarska vaga — Ridge ML analiza</title>
-  <meta name="description" content="Offline analiza pčelarske vage: temperaturna kompenzacija linearnom regresijom i Ridge ML, direktno u browseru.">
+  <title>Predviđaj — pčelarska vaga</title>
+  <meta name="description" content="Primeni istrenirani Ridge model na nove podatke pčelarske vage, direktno u browseru.">
   <link rel="stylesheet" href="style.css">
   <script src="app.js" defer></script>
 </head>
@@ -13,25 +13,29 @@
   <div class="app">
     <header class="site-header">
       <div class="brand-mark" aria-hidden="true">⬡</div>
-      <div class="brand-copy"><span class="eyebrow">ANALIZA SENZORA</span><h1>Pčelarska vaga</h1><p>Temperaturna kompenzacija · Linearna regresija + Ridge ML 6h</p></div>
+      <div class="brand-copy"><span class="eyebrow">PRIMENA MODELA</span><h1>Predviđaj</h1><p>Istrenirani Ridge model + novi podaci vage</p></div>
       <div class="header-note"><span class="status-light"></span> Sve se obrađuje u tvom browseru</div>
     </header>
 
     <main>
-      <section class="upload-card" id="dropzone" aria-label="Otpremanje log fajla">
+      <section class="upload-card" id="model-zone" aria-label="Učitavanje modela">
+        <div class="upload-icon" aria-hidden="true">⌁</div>
+        <div class="upload-copy"><span class="upload-step">KORAK 1</span><strong id="model-name">Ubaci <code>vaga_ridge_model.json</code></strong><span id="model-info">Model preuzet sa sajta za treniranje („Preuzmi Ridge model“).</span></div>
+        <div class="upload-actions"><input id="model-input" type="file" accept=".json,application/json" hidden><button class="btn btn-primary" id="model-btn" type="button">Izaberi model</button></div>
+      </section>
+      <section class="upload-card" id="data-zone" aria-label="Učitavanje novih podataka">
         <div class="upload-icon" aria-hidden="true"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3m0 0L7 8m5-5l5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></div>
-        <div class="upload-copy"><strong>Ubaci <code>vaga.txt</code></strong><span>Prevuci fajl ovde ili klikni na „Izaberi fajl“. Podržan je rastući i opadajući redosled datuma.</span></div>
-        <div class="upload-actions"><input id="file-input" type="file" accept=".txt,text/plain" hidden><button class="btn btn-primary" id="pick-btn" type="button">Izaberi fajl</button></div>
+        <div class="upload-copy"><span class="upload-step">KORAK 2</span><strong id="data-name">Ubaci nove podatke (<code>vaga.txt</code>)</strong><span id="data-info">Isti format loga, 15-minutni interval. Podržan je rastući i opadajući redosled datuma.</span></div>
+        <div class="upload-actions"><input id="data-input" type="file" accept=".txt,text/plain" hidden><button class="btn btn-primary" id="data-btn" type="button">Izaberi fajl</button></div>
       </section>
 
       <div id="error-box" class="error-box" role="alert" hidden></div>
-      <div id="busy" class="busy" role="status" hidden><span class="spinner"></span> Računam linearnu regresiju i treniram Ridge model…</div>
 
       <section id="intro" class="intro">
         <div class="intro-icon" aria-hidden="true">⌁</div>
-        <h2>Grafikoni su spremni za tvoj log</h2>
-        <p>Učitaj <code>vaga.txt</code>. Sajt automatski sortira vreme, trenira oba modela samo na Težini1 i temperaturi, pa prikaže sve parametre iz loga, predviđanja i kompenzacije.</p>
-        <div class="intro-steps"><span>01 · Učitaj TXT</span><span>02 · Treniraj modele</span><span>03 · Uporedi krive</span></div>
+        <h2>Učitaj model i nove podatke</h2>
+        <p>Podaci se crtaju onakvi kakvi jesu, a uporedo se dodaje predviđeni temperaturni drift (linearno i Ridge) i kompenzovana težina. Model se ne trenira ponovo.</p>
+        <div class="intro-steps"><span>01 · Učitaj model</span><span>02 · Učitaj nove podatke</span><span>03 · Uporedi krive</span></div>
       </section>
 
       <section id="results" hidden>
@@ -39,12 +43,12 @@
         <div class="workspace">
           <div class="charts-area">
             <article class="chart-card">
-              <div class="chart-header"><div><div class="section-kicker">GRAFIKON 01</div><h2>Težina, temperatura i predviđanja</h2><p>Leva osa: g · Desna osa: °C · Težina2 se prikazuje samo kada je uključena</p></div><button class="btn btn-subtle" type="button" id="download-top">Sačuvaj PNG ↗</button></div>
-              <div class="canvas-wrap" id="top-wrap"><canvas id="top-chart" aria-label="Težina1, temperatura i predviđanja kroz vreme" role="img"></canvas><div class="plot-tooltip" id="top-tooltip" hidden></div></div>
+              <div class="chart-header"><div><div class="section-kicker">GRAFIKON 01</div><h2>Izmereno i predviđeno</h2><p>Leva osa: g · Desna osa: °C · Predviđanje je usidreno na prvih 1 h loga</p></div><button class="btn btn-subtle" type="button" id="download-top">Sačuvaj PNG ↗</button></div>
+              <div class="canvas-wrap" id="top-wrap"><canvas id="top-chart" aria-label="Težina, temperatura i predviđanja kroz vreme" role="img"></canvas><div class="plot-tooltip" id="top-tooltip" hidden></div></div>
             </article>
             <article class="chart-card">
-              <div class="chart-header"><div><div class="section-kicker">GRAFIKON 02</div><h2>Kompenzovana težina</h2><p>Preostali drift: izmerena težina minus predviđanje</p></div><button class="btn btn-subtle" type="button" id="download-bottom">Sačuvaj PNG ↗</button></div>
-              <div class="canvas-wrap" id="bottom-wrap"><canvas id="bottom-chart" aria-label="Linearno i Ridge ML kompenzovana težina" role="img"></canvas><div class="plot-tooltip" id="bottom-tooltip" hidden></div></div>
+              <div class="chart-header"><div><div class="section-kicker">GRAFIKON 02</div><h2>Kompenzovana težina</h2><p>Izmerena težina minus predviđanje</p></div><button class="btn btn-subtle" type="button" id="download-bottom">Sačuvaj PNG ↗</button></div>
+              <div class="canvas-wrap" id="bottom-wrap"><canvas id="bottom-chart" aria-label="Linearno i Ridge kompenzovana težina" role="img"></canvas><div class="plot-tooltip" id="bottom-tooltip" hidden></div></div>
             </article>
             <article class="chart-card">
               <div class="chart-header"><div><div class="section-kicker">GRAFIKON 03</div><h2>Greške merenja i baterija</h2><p>Leva osa: Greška1 / Greška2 (±g) · Desna osa: napon (V)</p></div><button class="btn btn-subtle" type="button" id="download-extra">Sačuvaj PNG ↗</button></div>
@@ -53,9 +57,9 @@
             <p class="chart-hint"><span>☷</span> Pređi mišem preko grafikona za vrednosti · Točkić za zumiranje · Prevuci po grafikonu da izabereš period</p>
           </div>
           <aside class="sidebar">
-            <div class="side-card"><div class="section-kicker">PRIKAZ</div><h3>Krivе</h3><p class="side-desc">Klikni da uključiš ili isključiš. Dodatni parametri prikazuju se na odgovarajućim osama.</p><div id="series-controls" class="series-controls"></div><button class="btn btn-secondary btn-full" type="button" id="reset-zoom">Prikaži ceo period</button></div>
-            <div class="side-card"><div class="section-kicker">MODELI</div><h3>Rezultat treniranja</h3><div id="model-results"></div></div>
-            <div class="side-card"><div class="section-kicker">IZVOZ</div><h3>Sačuvaj podatke</h3><p class="side-desc">CSV sadrži svih šest sirovih parametara, oba predviđanja, kompenzacije i oznaku trening/test.</p><button class="btn btn-secondary btn-full" type="button" id="download-csv">Preuzmi CSV ↓</button><button class="btn btn-primary btn-full" type="button" id="download-model" style="margin-top:9px">Preuzmi Ridge model (JSON) ↓</button><p class="side-desc" style="margin:10px 0 0">Model je treniran na celom logu. Učitaj ga u sajt „Predviđaj“ da primeniš kompenzaciju na nove podatke.</p></div>
+            <div class="side-card"><div class="section-kicker">PRIKAZ</div><h3>Krive</h3><p class="side-desc">Klikni da uključiš ili isključiš.</p><div id="series-controls" class="series-controls"></div><button class="btn btn-secondary btn-full" type="button" id="reset-zoom">Prikaži ceo period</button></div>
+            <div class="side-card"><div class="section-kicker">MODEL</div><h3>Učitani model</h3><div id="model-results"></div></div>
+            <div class="side-card"><div class="section-kicker">IZVOZ</div><h3>Sačuvaj podatke</h3><p class="side-desc">CSV sadrži sve izmerene veličine, oba predviđanja i kompenzacije.</p><button class="btn btn-secondary btn-full" type="button" id="download-csv">Preuzmi CSV ↓</button></div>
           </aside>
         </div>
       </section>
